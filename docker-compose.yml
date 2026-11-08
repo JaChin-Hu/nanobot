@@ -1,66 +1,54 @@
-x-common-config: &common-config
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      NANOBOT_CHANNELS: ${NANOBOT_CHANNELS:-whatsapp}
-  environment:
-    NANOBOT_DOCKER_BOOTSTRAP: "1"
-    NANOBOT_WEB_TOKEN: ${NANOBOT_WEB_TOKEN:-}
-    NANOBOT_API_KEY: ${NANOBOT_API_KEY:-}
-  volumes:
-    - ~/.nanobot:/home/nanobot/.nanobot
-  cap_drop:
-    - ALL
-  # Entrypoint uses these to fix bind-mount ownership and drop to the nanobot user.
-  cap_add:
-    - CHOWN
-    - SETGID
-    - SETUID
-  # Prevent the non-root process from regaining capabilities through setuid
-  # binaries or file capabilities left inside the container image.
-  security_opt:
-    - no-new-privileges:true
+# Cloady build of nanobot. Upstream docker-compose.yml targets a self-managed
+# Docker host: it publishes 18790 on the host's loopback and bind-mounts
+# ~/.nanobot, neither of which exists on a PaaS (Cloady's compose parser
+# rejects "127.0.0.1:18790:18790" outright). This file keeps only the fields
+# Cloady's own catalog templates use: image build, command, environment,
+# published/exposed ports and a named volume.
+#
+# shortcut: one gateway service only. Add a nanobot-api service back
+# (serve --host 0.0.0.0 -p 8900, published port 8900 + api.apiKey) when the
+# OpenAI-compatible endpoint must be reachable from outside the app.
 
 services:
-  nanobot-gateway:
-    container_name: nanobot-gateway
-    <<: *common-config
+  nanobot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Empty = bake no channel deps, so the first build stays inside the
+        # free-tier 45-minute build cap. A channel enabled later from the
+        # WebUI installs its own dependencies at startup (the venv is writable
+        # by UID 1000). Rebuild with e.g. telegram,slack to bake them in.
+        NANOBOT_CHANNELS: ${NANOBOT_CHANNELS:-}
     command: ["gateway"]
-    restart: unless-stopped
+    environment:
+      # First boot writes config.json into the volume with gateway and
+      # websocket bound to 0.0.0.0, plus the WebUI credentials below.
+      NANOBOT_DOCKER_BOOTSTRAP: "1"
+      NANOBOT_WEB_TOKEN: ${NANOBOT_WEB_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
-      - 127.0.0.1:18790:18790
-      - 8765:8765
+      # WebUI + WebSocket channel; becomes the app's https/wss hostname.
+      - 8765
+    expose:
+      # Gateway health. Unauthenticated, so it stays internal.
+      - "18790"
+    volumes:
+      - home:/home/nanobot/.nanobot
     deploy:
       resources:
+        # Matches upstream's per-service ceiling and stays inside Cloady's free
+        # allowance (0.5 vCPU / 1 GB / 5 GB). Raise with a paid plan if the
+        # gateway hits its memory limit.
         limits:
-          cpus: "1"
+          cpus: "0.5"
           memory: 1G
         reservations:
-          cpus: "0.25"
-          memory: 256M
-
-  nanobot-api:
-    container_name: nanobot-api
-    <<: *common-config
-    command:
-      ["serve", "--host", "0.0.0.0", "-w", "/home/nanobot/.nanobot/api-workspace"]
-    restart: unless-stopped
-    ports:
-      - 127.0.0.1:8900:8900
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
+          cpus: "0.5"
           memory: 1G
-        reservations:
-          cpus: "0.25"
-          memory: 256M
 
-  nanobot-cli:
-    <<: *common-config
-    profiles:
-      - cli
-    command: ["status"]
-    stdin_open: true
-    tty: true
+volumes:
+  # Sessions, memory, cron state, media and config. Grows but never shrinks.
+  home:
+    driver_opts:
+      size: 4Gi
