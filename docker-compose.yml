@@ -15,13 +15,13 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Bake no channel deps so the first build stays inside the free-tier
-        # 45-minute cap; a channel enabled later from the WebUI installs its
-        # own dependencies at startup. Do NOT make this a runtime app variable:
+        # Bake the QQ channel's optional dependency (botpy). The remote WebUI
+        # cannot install optional packages, and a runtime install would be
+        # lost on the next rebuild. Do NOT make this a runtime app variable:
         # nanobot's Config uses env_prefix NANOBOT_, so a runtime
         # NANOBOT_CHANNELS maps onto the whole channels field and breaks
         # first-boot config validation.
-        NANOBOT_CHANNELS: ""
+        NANOBOT_CHANNELS: "qq"
     command: ["gateway"]
     environment:
       # First boot writes config.json into the volume with gateway and
