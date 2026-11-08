@@ -11,17 +11,14 @@
 
 services:
   nanobot:
+    # Cloady ignores compose build.args; the channel list lives in the
+    # Dockerfile's ARG NANOBOT_CHANNELS default instead. Never expose
+    # NANOBOT_CHANNELS as a runtime app variable: nanobot's Config uses
+    # env_prefix NANOBOT_, so it would map onto the whole channels field and
+    # break first-boot config validation.
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        # Bake the QQ channel's optional dependency (botpy). The remote WebUI
-        # cannot install optional packages, and a runtime install would be
-        # lost on the next rebuild. Do NOT make this a runtime app variable:
-        # nanobot's Config uses env_prefix NANOBOT_, so a runtime
-        # NANOBOT_CHANNELS maps onto the whole channels field and breaks
-        # first-boot config validation.
-        NANOBOT_CHANNELS: "qq"
     command: ["gateway"]
     environment:
       # First boot writes config.json into the volume with gateway and

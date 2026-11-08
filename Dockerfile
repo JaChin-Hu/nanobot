@@ -38,7 +38,8 @@ COPY scripts/install_channel_dependencies.py scripts/
 COPY --from=webui-builder /app/nanobot/web/dist/ nanobot/web/dist/
 RUN NANOBOT_SKIP_WEBUI_BUILD=1 uv pip install --python "$VIRTUAL_ENV/bin/python" --no-cache --no-deps .
 
-ARG NANOBOT_CHANNELS=whatsapp
+# Cloady ignores compose build.args, so this default is authoritative there.
+ARG NANOBOT_CHANNELS=whatsapp,qq
 RUN for channel in $(printf '%s' "$NANOBOT_CHANNELS" | tr ',' ' '); do \
         python -m scripts.install_channel_dependencies "$channel"; \
     done
