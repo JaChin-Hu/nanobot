@@ -10,11 +10,6 @@
       "title": "Anthropic API key",
       "description": "Optional. Any provider can also be configured later in WebUI Settings -> Models.",
       "secret": true
-    },
-    "NANOBOT_CHANNELS": {
-      "title": "Channels baked into the image",
-      "description": "Comma-separated, e.g. telegram,slack. Leave empty to install a channel's dependencies the first time it is enabled.",
-      "default": ""
     }
   }
 }
